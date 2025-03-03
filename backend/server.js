@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
+const admin = require('firebase-admin');
 
 // Import routes
 const weatherRoutes = require('./routes/weather');
@@ -16,6 +17,12 @@ const feedbackRoutes = require('./routes/feedback');
 // Initialize express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize Firebase Admin SDK
+admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+    projectId: config.google.projectId
+  });
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -43,6 +50,11 @@ app.use('/api/feedback', feedbackRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Error handling 404
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found' });
+  });
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -9,7 +9,7 @@
           ".read": false, 
           ".write": true,
           "$feedback_id": {
-            ".validate": "newData.hasChildren(['timestamp', 'comment'])" 
+            ".validate": "newData.hasChildren(['timestamp', 'message'])" 
           }
         },
         "user_data": {
