@@ -1,0 +1,27 @@
+{
+    "firestore": {
+      "rules": {
+        "current_aqi": {
+          ".read": true,  
+          ".write": false  
+        },
+        "user_feedback": {
+          ".read": false, 
+          ".write": true,
+          "$feedback_id": {
+            ".validate": "newData.hasChildren(['timestamp', 'comment'])" 
+          }
+        },
+        "user_data": {
+          "$user_id": {
+            ".read": "auth.uid === $user_id",
+            ".write": "auth.uid === $user_id"
+          }
+        },
+        "locations": {
+          ".read": true,
+          ".write": false 
+        }
+      }
+    }
+  }
