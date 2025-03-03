@@ -4,7 +4,7 @@ import datetime
 import json
 import time
 import uuid
-import requests # type: ignore
+import requests
 from google.cloud import pubsub_v1
 
 class SensorDataPublisher:
