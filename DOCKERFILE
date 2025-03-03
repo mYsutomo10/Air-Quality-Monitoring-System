@@ -1,0 +1,40 @@
+# Use Node.js LTS (Long Term Support) version as base image
+FROM node:18-alpine
+
+# Set working directory in the container
+WORKDIR /usr/src/app
+
+# Install dependencies required for Google Cloud SDK
+RUN apk add --no-cache python3 py3-pip curl bash
+
+# Install Google Cloud SDK
+RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-425.0.0-linux-x86_64.tar.gz && \
+    tar -xf google-cloud-sdk-425.0.0-linux-x86_64.tar.gz && \
+    ./google-cloud-sdk/install.sh --quiet && \
+    rm google-cloud-sdk-425.0.0-linux-x86_64.tar.gz
+ENV PATH $PATH:/usr/src/app/google-cloud-sdk/bin
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy application source code
+COPY . .
+
+# Create directory for logs
+RUN mkdir -p /usr/src/app/logs && chmod 777 /usr/src/app/logs
+
+# Environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Expose the port the app runs on
+EXPOSE 8080
+
+# Set non-root user for better security
+USER node
+
+# Command to run the application
+CMD ["node", "server.js"]
