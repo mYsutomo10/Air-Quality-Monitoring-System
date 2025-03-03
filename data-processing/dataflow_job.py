@@ -2,12 +2,12 @@
 import argparse
 import json
 import os
-import apache_beam as beam # type: ignore
-from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions # type: ignore
-from apache_beam.io import ReadFromPubSub, WriteToBigQuery, WriteToText # type: ignore
-from apache_beam.transforms.window import FixedWindows # type: ignore
+import apache_beam as beam 
+from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions 
+from apache_beam.io import ReadFromPubSub, WriteToBigQuery, WriteToText 
+from apache_beam.transforms.window import FixedWindows 
 import datetime
-import tensorflow as tf # type: ignore
+import tensorflow as tf 
 from google.cloud import storage, firestore
 
 class ParseJsonDoFn(beam.DoFn):

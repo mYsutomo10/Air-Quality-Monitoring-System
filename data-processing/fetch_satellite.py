@@ -5,7 +5,7 @@ import datetime
 import json
 import os
 import time
-import requests # type: ignore
+import requests
 from google.cloud import storage
 
 class Sentinel5PDataFetcher:
