@@ -17,7 +17,7 @@ class WeatherDataFetcher:
         self.bucket = self.storage_client.bucket(gcs_bucket)
     
     def fetch_weather_data(self, locations):
-        """Fetch weather data for multiple locations."""
+        """Fetch current and historical weather data for multiple locations."""
         results = []
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         
@@ -27,31 +27,55 @@ class WeatherDataFetcher:
                 lat = location['latitude']
                 lon = location['longitude']
                 
-                # Use OpenWeatherMap API (you can replace with your preferred API)
-                url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={self.api_key}&units=metric"
+                # Fetch current weather data
+                current_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={self.api_key}&units=metric"
+                current_response = requests.get(current_url)
+                current_response.raise_for_status()
+                current_data = current_response.json()
                 
-                response = requests.get(url)
-                response.raise_for_status()  # Raise exception for HTTP errors
-                
-                data = response.json()
-                
-                # Extract relevant weather data
                 weather_data = {
                     'location_name': location_name,
                     'latitude': lat,
                     'longitude': lon,
                     'timestamp': datetime.datetime.now().isoformat(),
-                    'temperature': data['main']['temp'],
-                    'humidity': data['main']['humidity'],
-                    'wind_speed': data['wind']['speed'],
-                    'wind_direction': data.get('wind', {}).get('deg', 0),
-                    'precipitation': data.get('rain', {}).get('1h', 0),
-                    'pressure': data['main']['pressure'],
-                    'weather_condition': data['weather'][0]['main'],
-                    'weather_description': data['weather'][0]['description']
+                    'temperature': current_data['main']['temp'],
+                    'humidity': current_data['main']['humidity'],
+                    'wind_speed': current_data['wind']['speed'],
+                    'wind_direction': current_data.get('wind', {}).get('deg', 0),
+                    'precipitation': current_data.get('rain', {}).get('1h', 0),
+                    'pressure': current_data['main']['pressure'],
+                    'weather_condition': current_data['weather'][0]['main'],
+                    'weather_description': current_data['weather'][0]['description'],
+                    'type': 'current'
                 }
-                
                 results.append(weather_data)
+                
+                # Fetch past 7 days of historical data
+                for days_ago in range(1, 8):
+                    past_timestamp = int((datetime.datetime.now() - datetime.timedelta(days=days_ago)).timestamp())
+                    history_url = f"https://api.openweathermap.org/data/2.5/onecall/timemachine?lat={lat}&lon={lon}&dt={past_timestamp}&appid={self.api_key}&units=metric"
+                    history_response = requests.get(history_url)
+                    history_response.raise_for_status()
+                    history_data = history_response.json()
+                    
+                    for hourly_data in history_data.get('hourly', []):
+                        past_weather = {
+                            'location_name': location_name,
+                            'latitude': lat,
+                            'longitude': lon,
+                            'timestamp': datetime.datetime.utcfromtimestamp(hourly_data['dt']).isoformat(),
+                            'temperature': hourly_data['temp'],
+                            'humidity': hourly_data['humidity'],
+                            'wind_speed': hourly_data['wind_speed'],
+                            'wind_direction': hourly_data.get('wind_deg', 0),
+                            'precipitation': hourly_data.get('rain', {}).get('1h', 0),
+                            'pressure': hourly_data['pressure'],
+                            'weather_condition': hourly_data['weather'][0]['main'],
+                            'weather_description': hourly_data['weather'][0]['description'],
+                            'type': 'historical'
+                        }
+                        results.append(past_weather)
+                
                 print(f"Fetched weather data for {location_name}")
                 
                 # Sleep briefly to avoid hitting API rate limits
