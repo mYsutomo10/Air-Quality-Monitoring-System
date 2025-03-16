@@ -9,9 +9,9 @@ const char* ssid = "NAMA_WIFI";
 const char* password = "PASSWORD_WIFI";
 
 // Konfigurasi Google Cloud
-const char* project_id = "your-project-id";   // Ganti dengan ID proyek
-const char* topic_name = "sensor-data";       // Ganti dengan nama topik Pub/Sub
-const char* jwt_token = "YOUR_GENERATED_JWT"; // JWT Token dari Google Cloud
+const char* project_id = "your-project-id";
+const char* topic_name = "sensor-data";
+const char* jwt_token = "YOUR_GENERATED_JWT";
 
 // Modul GPS
 static const int RXPin = 16, TXPin = 17;
