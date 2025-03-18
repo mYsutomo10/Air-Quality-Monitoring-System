@@ -1,69 +1,71 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
+import math
 
 # Inisialisasi Firestore
-cred = credentials.Certificate("path/to/serviceAccountKey.json")
+cred = credentials.Certificate("path/to/serviceAccountKey.json")  # Ganti dengan path JSON yang benar
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# AQI Breakpoints
-AQI_BREAKPOINTS = {
-    "pm2_5": [(0.0, 12.0, 0, 50), (12.1, 35.4, 51, 100), (35.5, 55.4, 101, 150),
-              (55.5, 150.4, 151, 200), (150.5, 250.4, 201, 300), (250.5, 500.4, 301, 500)],
-    "pm10": [(0, 54, 0, 50), (55, 154, 51, 100), (155, 254, 101, 150),
-             (255, 354, 151, 200), (355, 424, 201, 300), (425, 604, 301, 500)],
-    "co": [(0.0, 4.4, 0, 50), (4.5, 9.4, 51, 100), (9.5, 12.4, 101, 150),
-           (12.5, 15.4, 151, 200), (15.5, 30.4, 201, 300), (30.5, 50.4, 301, 500)],
-    "no2": [(0, 53, 0, 50), (54, 100, 51, 100), (101, 360, 101, 150),
-            (361, 649, 151, 200), (650, 1249, 201, 300), (1250, 2049, 301, 500)],
-    "o3": [(0.0, 0.054, 0, 50), (0.055, 0.070, 51, 100), (0.071, 0.085, 101, 150),
-           (0.086, 0.105, 151, 200), (0.106, 0.200, 201, 300), (0.201, 0.404, 301, 500)]
-}
+# Koleksi yang akan dipantau (bisa diperluas untuk banyak lokasi)
+locations = ["bojongsoang", "baleendah"]
+collections = [f"weather_pollution_{loc}" for loc in locations]
 
-# Fungsi untuk menghitung AQI per polutan
-def calculate_aqi(concentration, breakpoints):
-    for (C_low, C_high, I_low, I_high) in breakpoints:
-        if C_low <= concentration <= C_high:
-            return round(((I_high - I_low) / (C_high - C_low)) * (concentration - C_low) + I_low)
-    return None
-
-# Fungsi untuk mendapatkan AQI dari beberapa polutan
-def get_air_quality_index(data):
-    aqi_values = {
-        "pm2_5": calculate_aqi(data.get("pm2_5", 0), AQI_BREAKPOINTS["pm2_5"]),
-        "pm10": calculate_aqi(data.get("pm10", 0), AQI_BREAKPOINTS["pm10"]),
-        "co": calculate_aqi(data.get("co", 0) / 1000, AQI_BREAKPOINTS["co"]),  # Convert ppb to ppm
-        "no2": calculate_aqi(data.get("no2", 0), AQI_BREAKPOINTS["no2"]),
-        "o3": calculate_aqi(data.get("o3", 0) / 1000, AQI_BREAKPOINTS["o3"])  # Convert ppb to ppm
+# Fungsi untuk menghitung AQI berdasarkan polutan
+def calculate_aqi(pollutants):
+    # AQI Breakpoints (EPA Standard)
+    aqi_breakpoints = {
+        "pm2_5": [(0, 12, 0, 50), (12.1, 35.4, 51, 100), (35.5, 55.4, 101, 150), (55.5, 150.4, 151, 200), (150.5, 250.4, 201, 300), (250.5, 350.4, 301, 400), (350.5, 500.4, 401, 500)],
+        "pm10": [(0, 54, 0, 50), (55, 154, 51, 100), (155, 254, 101, 150), (255, 354, 151, 200), (355, 424, 201, 300), (425, 504, 301, 400), (505, 604, 401, 500)],
+        "o3": [(0, 54, 0, 50), (55, 70, 51, 100), (71, 85, 101, 150), (86, 105, 151, 200), (106, 200, 201, 300)],
+        "no2": [(0, 53, 0, 50), (54, 100, 51, 100), (101, 360, 101, 150), (361, 649, 151, 200), (650, 1249, 201, 300), (1250, 1649, 301, 400), (1650, 2049, 401, 500)],
+        "co": [(0, 4.4, 0, 50), (4.5, 9.4, 51, 100), (9.5, 12.4, 101, 150), (12.5, 15.4, 151, 200), (15.5, 30.4, 201, 300), (30.5, 40.4, 301, 400), (40.5, 50.4, 401, 500)]
     }
-    overall_aqi = max(filter(lambda x: x is not None, aqi_values.values()))
-    return {"AQI_per_pollutant": aqi_values, "Overall_AQI": overall_aqi}
 
-# Fungsi untuk mendengarkan perubahan data pada collection tertentu
-def on_snapshot(collection_name, result_collection, col_snapshot, changes, read_time):
-    for change in changes:
-        if change.type.name == "ADDED":  # Jika ada data baru
-            doc_id = change.document.id
-            data = change.document.to_dict()
+    def get_aqi(value, breakpoints):
+        for bp in breakpoints:
+            if bp[0] <= value <= bp[1]:
+                return ((bp[3] - bp[2]) / (bp[1] - bp[0])) * (value - bp[0]) + bp[2]
+        return None
 
-            print(f"📥 Data baru masuk dari {collection_name}: {data}")
+    aqi_values = []
+    for key in aqi_breakpoints.keys():
+        if key in pollutants:
+            aqi_value = get_aqi(pollutants[key], aqi_breakpoints[key])
+            if aqi_value:
+                aqi_values.append(aqi_value)
 
-            aqi_result = get_air_quality_index(data)
+    return max(aqi_values) if aqi_values else None
 
-            # Simpan hasil AQI ke Firestore di collection yang sesuai
-            db.collection(result_collection).document(doc_id).set(aqi_result)
-            print(f"✅ AQI for {doc_id} from {collection_name} calculated and saved to {result_collection}!")
+# Fungsi listener Firestore untuk mendeteksi data baru
+def firestore_listener(doc_snapshot, changes, read_time):
+    for doc in doc_snapshot:
+        data = doc.to_dict()
+        
+        if "list" in data and len(data["list"]) > 0:
+            pollution_data = data["list"][0]["polution"]
 
-# Memulai listener pada dua collection yang berbeda
-sensor_ref_loc1 = db.collection("sensor_data_loc1")
-sensor_ref_loc2 = db.collection("sensor_data_loc2")
+            # Ambil data polutan
+            pollutants = {
+                "pm2_5": pollution_data.get("pm2_5", 0),
+                "pm10": pollution_data.get("pm10", 0),
+                "o3": pollution_data.get("o3", 0),
+                "no2": pollution_data.get("no2", 0),
+                "co": pollution_data.get("co", 0),
+            }
 
-# Listener untuk masing-masing lokasi
-sensor_ref_loc1.on_snapshot(lambda col_snapshot, changes, read_time: on_snapshot("sensor_data_loc1", "aqi_results_loc1", col_snapshot, changes, read_time))
-sensor_ref_loc2.on_snapshot(lambda col_snapshot, changes, read_time: on_snapshot("sensor_data_loc2", "aqi_results_loc2", col_snapshot, changes, read_time))
+            # Hitung AQI
+            aqi = calculate_aqi(pollutants)
 
-# Agar script tetap berjalan
-print("🔄 Listening for new data from both locations...")
-import time
-while True:
-    time.sleep(1)
+            if aqi is not None:
+                # Update dokumen dengan AQI baru
+                doc.reference.update({"aqi": round(aqi)})
+                print(f"✅ AQI {round(aqi)} berhasil diperbarui untuk dokumen {doc.id}")
+
+# Menjalankan listener Firestore untuk setiap koleksi lokasi
+listeners = []
+for collection in collections:
+    query = db.collection(collection).on_snapshot(firestore_listener)
+    listeners.append(query)
+
+print("🚀 Firestore Trigger aktif, menunggu data baru masuk...")
