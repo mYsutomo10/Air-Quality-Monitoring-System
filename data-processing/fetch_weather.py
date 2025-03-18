@@ -13,10 +13,8 @@ API_KEY = "YOUR_OPENWEATHER_API_KEY"
 
 # Daftar koordinat lokasi (latitude, longitude)
 locations = [
-    (45.133, 7.367),  # Turin
-    (-6.2088, 106.8456),  # Jakarta
-    (35.6895, 139.6917),  # Tokyo
-    (40.7128, -74.0060)  # New York
+    (-6.983441, 107.633559),  # Bojongsoang
+    (-7.008112, 107.635957),  # Baleendah
 ]
 
 # Loop untuk mengambil data dari setiap koordinat
