@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+import os
 import requests
 import time
 import firebase_admin
@@ -8,8 +10,11 @@ cred = credentials.Certificate("path/to/serviceAccountKey.json")  # Ganti dengan
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
+# Load variabel dari file .env
+load_dotenv()
+
 # API Key OpenWeather
-API_KEY = "YOUR_OPENWEATHER_API_KEY"
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 # Daftar koordinat lokasi (latitude, longitude)
 locations = [
