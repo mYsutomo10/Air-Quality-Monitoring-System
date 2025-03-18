@@ -19,22 +19,6 @@ CREATE OR REPLACE TABLE `aqms_dataset.historical_aqi` (
   prediction_timestamp TIMESTAMP NOT NULL
 ) PARTITION BY DATE(timestamp);
 
--- Table for weather data
-CREATE OR REPLACE TABLE `aqms_dataset.weather_data` (
-  location_name STRING NOT NULL,
-  latitude FLOAT64 NOT NULL,
-  longitude FLOAT64 NOT NULL,
-  timestamp TIMESTAMP NOT NULL,
-  temperature FLOAT64,
-  humidity FLOAT64,
-  wind_speed FLOAT64,
-  wind_direction FLOAT64,
-  precipitation FLOAT64,
-  pressure FLOAT64,
-  weather_condition STRING,
-  weather_description STRING
-) PARTITION BY DATE(timestamp);
-
 -- Table for satellite data
 CREATE OR REPLACE TABLE `aqms_dataset.satellite_data` (
   location_name STRING NOT NULL,
@@ -108,18 +92,3 @@ GROUP BY
   location_name, week_start
 ORDER BY
   location_name, week_start DESC;
-
--- Table for user feedback
-CREATE OR REPLACE TABLE `aqms_dataset.user_feedback` (
-  feedback_id STRING NOT NULL,
-  user_id STRING,
-  location_name STRING,
-  latitude FLOAT64,
-  longitude FLOAT64,
-  timestamp TIMESTAMP NOT NULL,
-  rating INT64, -- User rating (e.g., 1-5 stars)
-  comment STRING,
-  feedback_type STRING, -- Type of feedback (e.g., "general", "air_quality", "app_experience")
-  app_version STRING,
-  device_info STRING
-) PARTITION BY DATE(timestamp);
