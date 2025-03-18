@@ -1,14 +1,17 @@
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.io.gcp.bigquery import WriteToBigQuery
 import json
+import os
 from datetime import datetime
 from google.cloud import firestore
+from google.cloud.firestore import Query
 
 class ParsePubSubMessage(beam.DoFn):
     def process(self, message):
         data = json.loads(message.decode('utf-8'))
         attributes = data.get("message", {}).get("attributes", {})
-        
+
         sensor_data = {
             "location": attributes.get("location", ""),
             "dt": attributes.get("dt", ""),
@@ -46,7 +49,7 @@ class JoinWeatherData(beam.DoFn):
             self.db.collection("weather_pollution")
             .document(location_name)
             .collection("readings")
-            .order_by("dt", direction=firestore.Query.DESCENDING)
+            .order_by("dt", direction=Query.DESCENDING)
             .limit(1)
         )
         docs = query.stream()
@@ -66,50 +69,53 @@ class SaveToFirestore(beam.DoFn):
         self.db = firestore.Client()
 
     def process(self, element):
-        doc_ref = (
+        element["dt"] = element["dt"].isoformat()  # Pastikan timestamp dalam format ISO untuk Firestore
+        _, write_time = (
             self.db.collection("processed_data")
             .document(element["location"])
-            .collection("sensor_info").add(element)
+            .collection("sensor_info")
+            .add(element)
         )
         yield element
 
-class SaveToBigQuery(beam.DoFn):
-    def process(self, element):
-        from apache_beam.io.gcp.bigquery import WriteToBigQuery
-        yield beam.Row(
-            location=element["location"],
-            timestamp=element["dt"].isoformat(),
-            latitude=element["lat"],
-            longitude=element["lon"],
-            pm2_5=element["pm2_5"],
-            pm10=element["pm10"],
-            o3=element["o3"],
-            co=element["co"],
-            no2=element["no2"],
-            temperature=element["temperature"],
-            humidity=element["humidity"],
-            wind_speed=element["wind_speed"],
-            wind_deg=element["wind_deg"]
-        )
-
 def run():
+    project_id = os.getenv("GCP_PROJECT", "your-gcp-project")  # Ambil dari environment variable
     pipeline_options = PipelineOptions(
         streaming=True,
-        project="your-gcp-project",
+        project=project_id,
         region="us-central1",
         job_name="aqms-dataflow-pipeline",
-        temp_location="gs://your-bucket-name/temp",
+        temp_location=f"gs://{os.getenv('BUCKET_NAME', 'your-bucket-name')}/temp",
     )
 
     with beam.Pipeline(options=pipeline_options) as p:
         (
             p
-            | "Read PubSub Messages" >> beam.io.ReadFromPubSub(subscription="projects/your-gcp-project/subscriptions/sensor-sub")
+            | "Read PubSub Messages" >> beam.io.ReadFromPubSub(subscription=f"projects/{project_id}/subscriptions/sensor-sub")
             | "Parse Messages" >> beam.ParDo(ParsePubSubMessage())
             | "Clean Data" >> beam.ParDo(CleanSensorData())
             | "Join Weather Data" >> beam.ParDo(JoinWeatherData())
             | "Save to Firestore" >> beam.ParDo(SaveToFirestore())
-            | "Save to BigQuery" >> beam.ParDo(SaveToBigQuery())
+            | "Save to BigQuery" >> WriteToBigQuery(
+                table=f"{project_id}:aqms_data.sensor_readings",
+                schema="""
+                    location:STRING,
+                    timestamp:TIMESTAMP,
+                    latitude:FLOAT,
+                    longitude:FLOAT,
+                    pm2_5:FLOAT,
+                    pm10:FLOAT,
+                    o3:FLOAT,
+                    co:FLOAT,
+                    no2:FLOAT,
+                    temperature:FLOAT,
+                    humidity:FLOAT,
+                    wind_speed:FLOAT,
+                    wind_deg:FLOAT
+                """,
+                create_disposition=WriteToBigQuery.CreateDisposition.CREATE_IF_NEEDED,
+                write_disposition=WriteToBigQuery.WriteDisposition.WRITE_APPEND
+            )
         )
 
 if __name__ == "__main__":
