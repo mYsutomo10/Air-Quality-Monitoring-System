@@ -53,6 +53,9 @@ while True:
             pm10 = pollution_info["components"]["pm10"]
             timestamp = pollution_info["dt"]  # Timestamp dalam UNIX UTC
 
+            # Konversi UNIX timestamp ke format YYYY-MM-DD HH:MM:SS
+            timestamp_str = datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
             # Format JSON yang akan dikirim ke Firestore
             combined_data = {
                 "coord": {
@@ -76,7 +79,7 @@ while True:
                             "pm2_5": pm2_5,
                             "pm10": pm10
                         },
-                        "dt": timestamp
+                        "dt": timestamp_str
                     }
                 ]
             }
