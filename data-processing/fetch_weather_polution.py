@@ -4,6 +4,7 @@ import requests
 import time
 import firebase_admin
 from firebase_admin import credentials, firestore
+from datetime import datetime
 
 # Inisialisasi Firestore dengan service account JSON
 cred = credentials.Certificate("path/to/serviceAccountKey.json")  # Ganti dengan path yang benar
@@ -16,15 +17,15 @@ load_dotenv()
 # API Key OpenWeather
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
-# Daftar koordinat lokasi (latitude, longitude)
-locations = [
-    (-6.983441, 107.633559),  # Bojongsoang
-    (-7.008112, 107.635957),  # Baleendah
-]
+# Daftar lokasi dengan nama unik
+locations = {
+    "bojongsoang": (-6.983441, 107.633559),
+    "baleendah": (-7.008112, 107.635957),
+}
 
 # Loop tak terbatas untuk menjalankan API call setiap 90 detik
 while True:
-    for lat, lon in locations:
+    for location_name, (lat, lon) in locations.items():
         # API Cuaca
         weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}"
         weather_response = requests.get(weather_url)
@@ -84,11 +85,14 @@ while True:
                 ]
             }
 
-            # Simpan ke Firestore dalam koleksi "weather_pollution_data"
-            db.collection("weather_pollution_data").add(combined_data)
-            print(f"✅ Data berhasil disimpan untuk lokasi ({lat}, {lon})")
+            # Simpan ke Firestore dalam koleksi unik berdasarkan lokasi
+            collection_name = f"weather_pollution_{location_name}"
+            db.collection(collection_name).add(combined_data)
+
+            print(f"✅ Data berhasil disimpan ke collection '{collection_name}' untuk lokasi {location_name}")
+
         else:
-            print(f"❌ Gagal mengambil data untuk lokasi ({lat}, {lon}). Status code: {weather_response.status_code}, {pollution_response.status_code}")
+            print(f"❌ Gagal mengambil data untuk lokasi {location_name}. Status code: {weather_response.status_code}, {pollution_response.status_code}")
 
     print("\n⏳ Menunggu 90 detik sebelum mengambil data lagi...\n")
     time.sleep(90)  # Menunggu 90 detik sebelum melakukan pemanggilan API lagi
