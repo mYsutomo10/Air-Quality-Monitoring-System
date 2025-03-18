@@ -79,7 +79,7 @@ class SaveToFirestore(beam.DoFn):
         yield element
 
 def run():
-    project_id = os.getenv("GCP_PROJECT", "your-gcp-project")  # Ambil dari environment variable
+    project_id = os.getenv("GCP_PROJECT", "your-gcp-project")  # Kiri ambil dari environment variable, kanan nilai default
     pipeline_options = PipelineOptions(
         streaming=True,
         project=project_id,
